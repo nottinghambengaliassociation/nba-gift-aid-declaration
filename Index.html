@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include_('Styles'); ?>
+</head>
+<body>
+
+<div class="band"></div>
+<div class="band-gold"></div>
+
+<header class="wrap site-head">
+  <img src="<?!= logo ?>" alt="<?= cfg.charityName ?> logo">
+  <div class="site-name">
+    <strong><?= cfg.charityName ?></strong>
+    <span>Registered Charity No. <?= cfg.charityNumber ?></span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <form id="form" class="card" novalidate>
+    <div class="intro">
+      <h1>Gift Aid declaration</h1>
+      <p class="lead">Boost your donation by 25p of Gift Aid for every £1 you give, at no extra cost to you.</p>
+      <p class="muted">Gift Aid is reclaimed by the charity from the tax you pay for the current tax year. Your home address is needed to identify you as a current UK taxpayer.</p>
+    </div>
+
+    <div id="summary" class="summary" role="alert" tabindex="-1" hidden>
+      <h2>There is a problem</h2>
+      <ul id="summary-list"></ul>
+    </div>
+
+    <fieldset>
+      <legend>Your details</legend>
+
+      <div class="field">
+        <label class="lbl" for="f-title">Title <span class="opt">(optional)</span></label>
+        <select id="f-title" class="txt w-title" autocomplete="honorific-prefix">
+          <option value=""></option>
+          <? for (var i = 0; i < titles.length; i++) { ?>
+            <option value="<?= titles[i] ?>"><?= titles[i] ?></option>
+          <? } ?>
+        </select>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label class="lbl" for="f-first">First name</label>
+          <p class="err" id="e-first" hidden></p>
+          <input id="f-first" class="txt" type="text" autocomplete="given-name" maxlength="35">
+        </div>
+        <div class="field">
+          <label class="lbl" for="f-last">Last name</label>
+          <p class="err" id="e-last" hidden></p>
+          <input id="f-last" class="txt" type="text" autocomplete="family-name" maxlength="35">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="f-email">Email address</label>
+        <span class="hint" id="h-email">We’ll send a copy of your declaration here.</span>
+        <p class="err" id="e-email" hidden></p>
+        <input id="f-email" class="txt w-email" type="email" autocomplete="email" spellcheck="false" inputmode="email" maxlength="254" aria-describedby="h-email">
+      </div>
+
+      <div class="hp" aria-hidden="true">
+        <label for="f-website">Leave this field empty</label>
+        <input id="f-website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Your home address</legend>
+
+      <div id="lookup" class="stack">
+        <div class="field">
+          <label class="lbl" for="f-postcode">Postcode</label>
+          <span class="hint" id="h-postcode">Enter your postcode and we’ll find your address.</span>
+          <p class="err" id="e-postcode" hidden></p>
+          <div class="pc-row">
+            <input id="f-postcode" class="txt upper" type="text" autocomplete="postal-code" spellcheck="false" maxlength="8" aria-describedby="h-postcode">
+            <button id="find" class="btn btn-secondary" type="button">Find address</button>
+          </div>
+        </div>
+
+        <div id="results-wrap" class="field" hidden>
+          <label class="lbl" for="f-address">Select your address</label>
+          <select id="f-address" class="txt"></select>
+        </div>
+
+        <button id="manual" class="btn-link" type="button">Enter address manually</button>
+      </div>
+
+      <div id="fields" class="stack-20" hidden>
+        <div class="field">
+          <label class="lbl" for="f-house">House name or number</label>
+          <p class="err" id="e-house" hidden></p>
+          <input id="f-house" class="txt w-house" type="text" maxlength="40">
+        </div>
+        <div class="field">
+          <label class="lbl" for="f-line1">Street</label>
+          <p class="err" id="e-line1" hidden></p>
+          <input id="f-line1" class="txt" type="text" autocomplete="address-line1" maxlength="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="f-line2">Address line 2 <span class="opt">(optional)</span></label>
+          <input id="f-line2" class="txt" type="text" autocomplete="address-line2" maxlength="100">
+        </div>
+        <div class="field">
+          <label class="lbl" for="f-town">Town or city</label>
+          <p class="err" id="e-town" hidden></p>
+          <input id="f-town" class="txt w-town" type="text" autocomplete="address-level2" maxlength="60">
+        </div>
+        <div class="field">
+          <label class="lbl" for="f-addrPc">Postcode</label>
+          <p class="err" id="e-addrPc" hidden></p>
+          <input id="f-addrPc" class="txt w-pc upper" type="text" autocomplete="postal-code" spellcheck="false" maxlength="8">
+        </div>
+        <button id="again" class="btn-link" type="button">Search by postcode instead</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Declaration</legend>
+      <div id="decl" class="decl">
+        <? for (var p = 0; p < paragraphs.length; p++) { ?>
+          <p><?= paragraphs[p] ?></p>
+        <? } ?>
+        <p class="err" id="e-agree" hidden></p>
+        <div class="check">
+          <input id="f-agree" type="checkbox">
+          <label for="f-agree">Yes, I want to Gift Aid my donations</label>
+        </div>
+      </div>
+    </fieldset>
+
+    <div id="alert" class="alert" role="alert" tabindex="-1" hidden>
+      <h2>Your declaration hasn’t been sent</h2>
+      <p>There was a problem on our side. Try again in a minute, or email <a href="mailto:<?= cfg.contactEmail ?>" target="_blank" class="wrap-any"><?= cfg.contactEmail ?></a>.</p>
+    </div>
+
+    <div class="submit-area">
+      <button id="submit" class="btn btn-primary" type="submit">Submit declaration</button>
+      <p class="small">We’ll email you a copy for your records. Your details are used only to claim Gift Aid and are kept securely.<? if (cfg.privacyUrl) { ?> Read our <a href="<?= cfg.privacyUrl ?>" target="_blank" rel="noopener">privacy notice</a>.<? } ?></p>
+    </div>
+  </form>
+
+  <section id="done" class="card" tabindex="-1" hidden aria-labelledby="done-title">
+    <div class="done-head">
+      <div class="tick">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </div>
+      <h1 id="done-title">Thank you, <span id="d-first"></span></h1>
+      <p class="lead" style="font-weight:400">Your Gift Aid declaration has been received. We’ve emailed a copy to <strong id="d-email" class="wrap-any"></strong>.</p>
+    </div>
+
+    <dl class="done-dl">
+      <dt>Name</dt><dd id="d-name"></dd>
+      <dt>Home address</dt><dd id="d-addr" class="pre"></dd>
+      <dt>Date</dt><dd id="d-date"></dd>
+      <dt>Covers</dt><dd>Donations made since <span id="d-since"></span>, and all future donations</dd>
+      <dt>Reference</dt><dd id="d-ref"></dd>
+    </dl>
+
+    <div class="done-block">
+      <h2>Please let us know if you</h2>
+      <ul>
+        <? for (var n = 0; n < notifyItems.length; n++) { ?>
+          <li><?= notifyItems[n] ?></li>
+        <? } ?>
+      </ul>
+      <p>Email us at <a class="wrap-any" href="mailto:<?= cfg.contactEmail ?>" target="_blank"><?= cfg.contactEmail ?></a></p>
+    </div>
+
+    <p class="small"><?= higherRateNote ?></p>
+
+    <a class="btn btn-primary" href="<?= cfg.websiteUrl ?>" target="_top">Return to our website</a>
+  </section>
+</main>
+
+<footer class="wrap site-foot">
+  <span>Need to cancel or change a declaration? Email <a class="wrap-any" href="mailto:<?= cfg.contactEmail ?>" target="_blank"><?= cfg.contactEmail ?></a></span>
+  <span><?= cfg.charityName ?> · Registered Charity No. <?= cfg.charityNumber ?></span>
+</footer>
+
+<?!= include_('Client'); ?>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var PC_RE = /^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$/i;
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var KEYS = ['first', 'last', 'email', 'postcode', 'house', 'line1', 'town', 'addrPc', 'agree'];
+  var HINTS = { email: 'h-email', postcode: 'h-postcode' };
+
+  var state = { showFields: false, results: [], showErrors: false, lookupError: '', serverErrors: {}, sending: false };
+
+  function val(id) { return ($(id).value || '').trim(); }
+  function pcFormat(v) {
+    var c = (v || '').replace(/\s+/g, '').toUpperCase();
+    return c.length > 3 ? c.slice(0, -3) + ' ' + c.slice(-3) : c;
+  }
+
+  function validate() {
+    var e = {};
+    if (!val('f-first')) e.first = 'Enter your first name';
+    if (!val('f-last')) e.last = 'Enter your last name';
+    if (!val('f-email')) e.email = 'Enter your email address';
+    else if (!EMAIL_RE.test(val('f-email'))) e.email = 'Enter an email address in the correct format, like name@example.com';
+    if (!state.showFields) {
+      e.postcode = 'Find your address or enter it manually';
+    } else {
+      if (!val('f-house')) e.house = 'Enter your house name or number';
+      if (!val('f-line1')) e.line1 = 'Enter your street';
+      if (!val('f-town')) e.town = 'Enter your town or city';
+      if (!PC_RE.test(val('f-addrPc'))) e.addrPc = 'Enter a full UK postcode, like NG1 1AB';
+    }
+    if (!$('f-agree').checked) e.agree = 'Tick the box to confirm you want to Gift Aid your donations';
+    return e;
+  }
+
+  function currentErrors() {
+    var errs = state.showErrors ? validate() : {};
+    Object.keys(state.serverErrors).forEach(function (k) { if (!errs[k]) errs[k] = state.serverErrors[k]; });
+    return errs;
+  }
+
+  function render() {
+    var errs = currentErrors();
+    var inline = Object.assign({}, errs);
+    if (state.lookupError) inline.postcode = state.lookupError;
+
+    KEYS.forEach(function (k) {
+      var msgEl = $('e-' + k), input = $('f-' + k), msg = inline[k] || '';
+      msgEl.textContent = msg;
+      msgEl.hidden = !msg;
+      input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+      var ids = [];
+      if (HINTS[k]) ids.push(HINTS[k]);
+      if (msg) ids.push('e-' + k);
+      if (ids.length) input.setAttribute('aria-describedby', ids.join(' '));
+      else input.removeAttribute('aria-describedby');
+    });
+    $('decl').classList.toggle('invalid', !!inline.agree);
+
+    var list = $('summary-list');
+    list.textContent = '';
+    var keys = Object.keys(errs);
+    keys.forEach(function (k) {
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#f-' + k;
+      a.textContent = errs[k];
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var target = $('f-' + k);
+        target.focus();
+        target.scrollIntoView({ block: 'center' });
+      });
+      li.appendChild(a);
+      list.appendChild(li);
+    });
+    $('summary').hidden = keys.length === 0;
+  }
+
+  function setFieldsVisible(on) {
+    state.showFields = on;
+    $('lookup').hidden = on;
+    $('fields').hidden = !on;
+  }
+
+  function fillAddress(r) {
+    $('f-house').value = r.house || '';
+    $('f-line1').value = r.street || '';
+    $('f-line2').value = r.line2 || '';
+    $('f-town').value = r.town || '';
+    $('f-addrPc').value = r.postcode || '';
+  }
+
+  /* ---------- Postcode lookup ---------- */
+
+  function setFinding(on) {
+    var btn = $('find');
+    btn.disabled = on;
+    btn.textContent = on ? 'Searching…' : 'Find address';
+  }
+
+  $('find').addEventListener('click', function () {
+    var raw = val('f-postcode');
+    if (!PC_RE.test(raw)) {
+      state.lookupError = 'Enter a full UK postcode, like NG1 1AB';
+      $('results-wrap').hidden = true;
+      render();
+      $('f-postcode').focus();
+      return;
+    }
+    $('f-postcode').value = pcFormat(raw);
+    state.lookupError = '';
+    setFinding(true);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        setFinding(false);
+        if (!res || !res.ok) {
+          state.lookupError = (res && res.message) || 'Address search isn’t working right now. Enter your address manually instead.';
+          $('results-wrap').hidden = true;
+          render();
+          $('f-postcode').focus();
+          return;
+        }
+        state.results = res.addresses || [];
+        var sel = $('f-address');
+        sel.textContent = '';
+        var first = document.createElement('option');
+        first.value = '';
+        first.textContent = state.results.length + (state.results.length === 1 ? ' address found' : ' addresses found');
+        sel.appendChild(first);
+        state.results.forEach(function (r) {
+          var o = document.createElement('option');
+          o.value = r.id;
+          o.textContent = r.label;
+          sel.appendChild(o);
+        });
+        $('results-wrap').hidden = false;
+        render();
+        sel.focus();
+      })
+      .withFailureHandler(function () {
+        setFinding(false);
+        state.lookupError = 'Address search isn’t working right now. Enter your address manually instead.';
+        render();
+      })
+      .lookupPostcode(pcFormat(raw));
+  });
+
+  $('f-postcode').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); $('find').click(); }
+  });
+  $('f-postcode').addEventListener('input', function () {
+    if (state.lookupError) { state.lookupError = ''; render(); }
+  });
+
+  $('f-address').addEventListener('change', function (ev) {
+    var r = state.results.filter(function (x) { return x.id === ev.target.value; })[0];
+    if (!r) return;
+    fillAddress(r);
+    setFieldsVisible(true);
+    render();
+    $('f-house').focus();
+  });
+
+  $('manual').addEventListener('click', function () {
+    var pc = val('f-postcode');
+    if (!val('f-addrPc') && PC_RE.test(pc)) $('f-addrPc').value = pcFormat(pc);
+    state.lookupError = '';
+    setFieldsVisible(true);
+    render();
+    $('f-house').focus();
+  });
+
+  $('again').addEventListener('click', function () {
+    fillAddress({});
+    $('results-wrap').hidden = true;
+    $('f-address').value = '';
+    setFieldsVisible(false);
+    render();
+    $('f-postcode').focus();
+  });
+
+  $('f-addrPc').addEventListener('blur', function () {
+    var v = val('f-addrPc');
+    if (PC_RE.test(v)) $('f-addrPc').value = pcFormat(v);
+  });
+
+  $('form').addEventListener('input', function (ev) {
+    var key = ev.target.id.replace(/^f-/, '');
+    if (state.serverErrors[key]) delete state.serverErrors[key];
+    if (state.showErrors || Object.keys(state.serverErrors).length) render();
+  });
+  $('form').addEventListener('change', function () {
+    if (state.showErrors) render();
+  });
+
+  /* ---------- Submit ---------- */
+
+  function setSending(on) {
+    state.sending = on;
+    var btn = $('submit');
+    btn.disabled = on;
+    btn.textContent = on ? 'Submitting…' : 'Submit declaration';
+  }
+
+  function showSummary() {
+    var s = $('summary');
+    s.scrollIntoView({ block: 'start' });
+    s.focus({ preventScroll: true });
+  }
+
+  $('form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (state.sending) return;
+    $('alert').hidden = true;
+    state.serverErrors = {};
+
+    if (Object.keys(validate()).length) {
+      state.showErrors = true;
+      render();
+      showSummary();
+      return;
+    }
+
+    var payload = {
+      title: $('f-title').value,
+      firstName: val('f-first'),
+      lastName: val('f-last'),
+      email: val('f-email'),
+      house: val('f-house'),
+      street: val('f-line1'),
+      line2: val('f-line2'),
+      town: val('f-town'),
+      postcode: pcFormat(val('f-addrPc')),
+      agree: $('f-agree').checked === true,
+      website: $('f-website').value
+    };
+
+    setSending(true);
+    google.script.run
+      .withSuccessHandler(function (res) {
+        setSending(false);
+        if (!res || !res.ok) {
+          state.showErrors = true;
+          state.serverErrors = (res && res.errors) || {};
+          render();
+          showSummary();
+          return;
+        }
+        $('d-first').textContent = res.firstName;
+        $('d-email').textContent = res.email;
+        $('d-name').textContent = res.name;
+        $('d-addr').textContent = res.address;
+        $('d-date').textContent = res.dateText;
+        $('d-since').textContent = res.sinceText;
+        $('d-ref').textContent = res.reference;
+        $('form').hidden = true;
+        $('done').hidden = false;
+        window.scrollTo(0, 0);
+        $('done').focus({ preventScroll: true });
+      })
+      .withFailureHandler(function () {
+        setSending(false);
+        var a = $('alert');
+        a.hidden = false;
+        a.scrollIntoView({ block: 'center' });
+        a.focus({ preventScroll: true });
+      })
+      .submitDeclaration(payload);
+  });
+})();
+</script>
